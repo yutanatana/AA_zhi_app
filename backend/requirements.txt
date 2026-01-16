@@ -2,3 +2,5 @@ fastapi
 uvicorn
 sqlalchemy
 pydantic
+libsql-client
+sqlalchemy-libsql
