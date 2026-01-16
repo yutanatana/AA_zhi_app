@@ -9,6 +9,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # CORS Setup
+# Allow specific origins for frontend access
 origins = [
     "https://aa-zhi-app.vercel.app",
     "http://localhost:5173",
