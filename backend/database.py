@@ -1,8 +1,15 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+# Get the directory of the current file (backend/)
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+# The database file is in the parent directory of backend/ (project root)
+# resolving to absolute path
+DB_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "sql_app.db")
+
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
