@@ -15,7 +15,9 @@ auth_token = os.getenv("DATABASE_AUTH_TOKEN", "")
 if env_db_url and env_db_url.startswith("libsql://"):
     # Turso (libsql) 用の接続URLを生成
     # 形式: sqlite+libsql://[host]?auth_token=[token]
-    db_host = env_db_url.split("libsql://")[1]
+    # スラッシュを削除し、プロトコル部分を分離
+    clean_url = env_db_url.replace("libsql://", "").strip("/")
+    db_host = clean_url.split("libsql://")[1]
     SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{db_host}?auth_token={auth_token}"
 else:
     # 環境変数がなければ、既存のローカルSQLiteを使用
