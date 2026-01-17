@@ -1,78 +1,55 @@
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 import os
 import sys
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
 
-# --- 環境変数の取得 ---
 env_db_url = os.getenv("DATABASE_URL", "").strip()
 auth_token = os.getenv("DATABASE_AUTH_TOKEN", "").strip()
 
-# --- デバッグ出力 ---
 print(f"--- [DEBUG] DATABASE_URL: {env_db_url}")
 print(f"--- [DEBUG] Auth token exists: {bool(auth_token)}")
 
-# --- 接続設定 ---
-connect_args = {"check_same_thread": False}
-
 if "turso.io" in env_db_url:
-    print(f"--- [SETUP] Detected Turso Database ---")
-    
-    # 1. トークンの存在チェック
+    print("--- [SETUP] Detected Turso Database ---")
+
     if not auth_token:
         print("!!! CRITICAL ERROR: DATABASE_AUTH_TOKEN is missing !!!")
         sys.exit(1)
-    
-    # 2. LIBSQL_AUTH_TOKEN 環境変数を設定（sqlalchemy-libsql が自動的に読み取る）
-    os.environ["LIBSQL_AUTH_TOKEN"] = auth_token
-    print("--- [SETUP] Set LIBSQL_AUTH_TOKEN environment variable")
-    
-    # 3. ホスト名を抽出
+
     host = env_db_url.replace("libsql://", "").replace("https://", "").split("?")[0]
-    
-    # 4. シンプルな URL（トークンは環境変数から自動取得される）
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{host}"
-    
-    print(f"--- [SETUP] Host: {host}")
-    print(f"--- [SETUP] URL: {SQLALCHEMY_DATABASE_URL}")
+
+    SQLALCHEMY_DATABASE_URL = (
+        f"sqlite+libsql://{host}"
+        f"?authToken={auth_token}&secure=true"
+    )
+
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,      # ★超重要
+    )
 
 else:
-    # ローカル開発用
-    BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-    DB_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "sql_app.db")
-    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
-    print(f"--- [SETUP] Connecting to Local SQLite: {DB_PATH}")
+    # ローカル SQLite
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(os.path.dirname(BASE_DIR), "sql_app.db")
 
-# --- エンジン作成 ---
-print(f"--- [SETUP] Creating engine...")
-
-try:
     engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, 
-        connect_args=connect_args,
+        f"sqlite:///{DB_PATH}",
+        connect_args={"check_same_thread": False},
         echo=False,
-        pool_pre_ping=True
     )
-    
-    # 接続テスト
+
+# 接続テスト
+try:
     print("--- [SETUP] Testing connection...")
     with engine.connect() as conn:
-        result = conn.execute("SELECT 1")
-        print(f"--- [SETUP] Connection test successful! Result: {result.fetchone()}")
-    
-    print("--- [SETUP] Engine created successfully!")
-    
+        conn.execute(text("SELECT 1"))
+    print("--- [SETUP] Connection OK")
 except Exception as e:
-    print(f"!!! ERROR: {type(e).__name__}: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
+    print("!!! CONNECTION ERROR !!!")
+    raise
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
