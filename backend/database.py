@@ -10,7 +10,6 @@ auth_token = os.getenv("DATABASE_AUTH_TOKEN", "").strip()
 # --- デバッグ出力 ---
 print(f"--- [DEBUG] DATABASE_URL: {env_db_url}")
 print(f"--- [DEBUG] Auth token exists: {bool(auth_token)}")
-print(f"--- [DEBUG] Auth token first 20 chars: {auth_token[:20] if auth_token else 'N/A'}...")
 
 # --- 接続設定 ---
 connect_args = {"check_same_thread": False}
@@ -23,21 +22,16 @@ if "turso.io" in env_db_url:
         print("!!! CRITICAL ERROR: DATABASE_AUTH_TOKEN is missing !!!")
         sys.exit(1)
     
-    # 2. URL の正規化 - libsql:// を https:// に変換
-    if env_db_url.startswith("libsql://"):
-        host = env_db_url.replace("libsql://", "")
-    elif env_db_url.startswith("https://"):
-        host = env_db_url.replace("https://", "")
-    else:
-        host = env_db_url
+    # 2. ホスト名を抽出
+    host = env_db_url.replace("libsql://", "").replace("https://", "").split("?")[0]
     
-    # クエリパラメータを削除
-    host = host.split("?")[0]
+    # 3. 正しい形式で URL を構築
+    # sqlalchemy-libsql は以下の形式を期待：
+    # sqlite+libsql://ホスト名?authToken=xxx&secure=true
+    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{host}?authToken={auth_token}&secure=true"
     
-    # 3. sqlite+libsql:// プロトコルで https:// を使う
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://https://{host}?authToken={auth_token}"
-    
-    print(f"--- [SETUP] Connecting to: sqlite+libsql://https://{host}?authToken=***")
+    print(f"--- [SETUP] Host: {host}")
+    print(f"--- [SETUP] Connecting with secure=true")
 
 else:
     # ローカル開発用
