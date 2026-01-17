@@ -7,21 +7,26 @@ from sqlalchemy.orm import sessionmaker
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "sql_app.db")
 
-# --- 接続先URLの決定 ---
+# --- 環境変数の取得 ---
 env_db_url = os.getenv("DATABASE_URL", "").strip()
 auth_token = os.getenv("DATABASE_AUTH_TOKEN", "").strip()
 
-# Turso (turso.io) を使用するかどうかの判定
+# --- デバッグログ (RenderのLogsで確認してください) ---
+print(f"-------- [DEBUG START] --------")
+print(f"DATABASE_URL (Raw): {env_db_url}")
+# トークンはセキュリティのため先頭10文字だけ表示し、残りは隠す
+masked_token = (auth_token[:10] + "...") if auth_token else "EMPTY/NONE"
+print(f"DATABASE_AUTH_TOKEN: {masked_token}")
+print(f"-------- [DEBUG END] --------")
+
+# --- 接続先URLの決定 ---
 if "turso.io" in env_db_url:
-    # 1. プロトコル（libsql:// や https://）と末尾のスラッシュを強制的に削除
-    #    例: "libsql://my-db.turso.io/" -> "my-db.turso.io"
-    clean_host = env_db_url.replace("libsql://", "").replace("https://", "").replace("http://", "").strip("/")
+    # URLから不要なプロトコルと、万が一含まれているクエリパラメータ(?以降)を削除
+    clean_host = env_db_url.split("://")[-1].split("?")[0].strip("/")
     
-    # 2. 正しい形式 (sqlite+libsql://ドメイン) で再構築
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{clean_host}?auth_token={auth_token}&secure=true"
-    
-    # デバッグ用ログ（RenderのLogsで確認できます）
-    print(f"-------- [DEBUG] Connecting to Turso Host: {clean_host} --------")
+    # URLを再構築
+    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{clean_host}?authToken={auth_token}&secure=true"
+    print(f"-------- [DEBUG] Final URL: sqlite+libsql://{clean_host}?authToken=***&secure=true --------")
 
 else:
     # ローカル開発用
@@ -35,7 +40,6 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 def get_db():
