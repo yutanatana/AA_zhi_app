@@ -2,7 +2,6 @@ import os
 import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.engine.url import URL # <--- これを追加
 
 # --- 環境変数の取得 ---
 env_db_url = os.getenv("DATABASE_URL", "").strip()
@@ -16,29 +15,29 @@ if "turso.io" in env_db_url:
     
     # 1. トークンの存在チェック
     if not auth_token:
-        print("!!! CRITICAL ERROR: DATABASE_AUTH_TOKEN is missing provided !!!")
+        print("!!! CRITICAL ERROR: DATABASE_AUTH_TOKEN is missing !!!")
         sys.exit(1)
-        
-    # 2. ホスト名の抽出
-    # "libsql://" や "https://" を取り除き、クエリパラメータも削除してホスト名だけにする
-    # 例: "libsql://my-db.turso.io" -> "my-db.turso.io"
-    clean_host = env_db_url.replace("libsql://", "").replace("https://", "").replace("http://", "").split("?")[0].strip("/")
     
-    # 3. URLオブジェクトを使って安全に構築 (ここが修正の肝)
-    # これにより、トークン内の記号が自動的に正しく変換(エンコード)されます
-    db_url_obj = URL.create(
-        drivername="sqlite+libsql",
-        host=clean_host,
-        query={
-            "authToken": auth_token,
-            "secure": "true"
-        }
-    )
+    # 2. URL から libsql:// 形式に変換
+    # 環境変数が https:// で来ても libsql:// に統一
+    if env_db_url.startswith("https://"):
+        clean_url = env_db_url.replace("https://", "libsql://")
+    elif env_db_url.startswith("libsql://"):
+        clean_url = env_db_url
+    else:
+        clean_url = f"libsql://{env_db_url}"
     
-    # URLオブジェクトを文字列ではなく、そのままエンジンに渡すか、render_as_stringで確認
-    SQLALCHEMY_DATABASE_URL = db_url_obj
+    # クエリパラメータを削除（もしあれば）
+    SQLALCHEMY_DATABASE_URL = clean_url.split("?")[0]
     
-    print(f"--- [SETUP] Connection URL constructed for host: {clean_host}")
+    # 3. connect_args に authToken を追加（これが重要！）
+    connect_args = {
+        "check_same_thread": False,
+        "authToken": auth_token  # ← ここでトークンを渡す
+    }
+    
+    print(f"--- [SETUP] Turso URL: {SQLALCHEMY_DATABASE_URL}")
+    print(f"--- [SETUP] Auth token length: {len(auth_token)}")
 
 else:
     # ローカル開発用
