@@ -23,15 +23,21 @@ if "turso.io" in env_db_url:
         print("!!! CRITICAL ERROR: DATABASE_AUTH_TOKEN is missing !!!")
         sys.exit(1)
     
-    # 2. libsql-client を使った接続文字列を構築
-    # libsql:// のまま使い、sync_url パラメータでトークンを渡す
-    base_url = env_db_url.replace("libsql://", "").replace("https://", "")
+    # 2. URL の正規化 - libsql:// を https:// に変換
+    if env_db_url.startswith("libsql://"):
+        host = env_db_url.replace("libsql://", "")
+    elif env_db_url.startswith("https://"):
+        host = env_db_url.replace("https://", "")
+    else:
+        host = env_db_url
     
-    # sync_url 形式: libsql://host?authToken=xxx
-    # ただし、sqlalchemy-libsql の場合は特殊な形式が必要
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{base_url}?authToken={auth_token}"
+    # クエリパラメータを削除
+    host = host.split("?")[0]
     
-    print(f"--- [SETUP] Connecting to: sqlite+libsql://{base_url}?authToken=***")
+    # 3. sqlite+libsql:// プロトコルで https:// を使う
+    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://https://{host}?authToken={auth_token}"
+    
+    print(f"--- [SETUP] Connecting to: sqlite+libsql://https://{host}?authToken=***")
 
 else:
     # ローカル開発用
@@ -48,12 +54,14 @@ try:
         SQLALCHEMY_DATABASE_URL, 
         connect_args=connect_args,
         echo=False,
-        pool_pre_ping=True  # 接続の健全性チェック
+        pool_pre_ping=True
     )
     
     # 接続テスト
+    print("--- [SETUP] Testing connection...")
     with engine.connect() as conn:
-        print("--- [SETUP] Connection test successful!")
+        result = conn.execute("SELECT 1")
+        print(f"--- [SETUP] Connection test successful! Result: {result.fetchone()}")
     
     print("--- [SETUP] Engine created successfully!")
     
