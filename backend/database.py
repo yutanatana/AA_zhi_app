@@ -1,42 +1,41 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# --- ローカルパス設定 ---
-BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "sql_app.db")
-
-# --- 環境変数の取得 ---
+# --- 環境変数の読み込み ---
+# Renderで設定されている "libsql://..." 形式のURL
 env_db_url = os.getenv("DATABASE_URL", "").strip()
+# Renderで設定されているトークン
 auth_token = os.getenv("DATABASE_AUTH_TOKEN", "").strip()
 
-# --- デバッグログ (RenderのLogsで確認してください) ---
-print(f"-------- [DEBUG START] --------")
-print(f"DATABASE_URL (Raw): {env_db_url}")
-# トークンはセキュリティのため先頭10文字だけ表示し、残りは隠す
-masked_token = (auth_token[:10] + "...") if auth_token else "EMPTY/NONE"
-print(f"DATABASE_AUTH_TOKEN: {masked_token}")
-print(f"-------- [DEBUG END] --------")
+# --- デバッグ出力（ログで変数が空かを確認するため） ---
+print(f"--- DEBUG: URL Length: {len(env_db_url)}")
+print(f"--- DEBUG: Token Length: {len(auth_token)}") # ここが 0 なら環境変数が読めていません
 
-# --- 接続先URLの決定 ---
+# --- 接続設定 ---
+connect_args = {"check_same_thread": False}
+
 if "turso.io" in env_db_url:
-    # URLから不要なプロトコルと、万が一含まれているクエリパラメータ(?以降)を削除
-    clean_host = env_db_url.split("://")[-1].split("?")[0].strip("/")
+    # URLのプロトコル部分を修正 (libsql:// -> sqlite+libsql://)
+    # urlは "sqlite+libsql://db-name.turso.io" のようなシンプルな形にします
+    url = env_db_url.replace("libsql://", "sqlite+libsql://").replace("https://", "sqlite+libsql://")
     
-    # URLを再構築
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{clean_host}?authToken={auth_token}&secure=true"
-    print(f"-------- [DEBUG] Final URL: sqlite+libsql://{clean_host}?authToken=***&secure=true --------")
-
+    # 重要: トークンは URL に含めず、connect_args で渡す
+    connect_args["authToken"] = auth_token
+    connect_args["secure"] = True
+    
+    SQLALCHEMY_DATABASE_URL = url
+    print(f"--- DEBUG: Connecting to Turso (Token passed via args) ---")
 else:
-    # ローカル開発用
+    # ローカル用
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql_app.db")
     SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
-    print("-------- [DEBUG] Connecting to Local SQLite --------")
+    print(f"--- DEBUG: Connecting to Local SQLite ---")
 
 # --- エンジン作成 ---
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args=connect_args
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
