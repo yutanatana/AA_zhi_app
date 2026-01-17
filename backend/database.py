@@ -22,16 +22,18 @@ if "turso.io" in env_db_url:
         print("!!! CRITICAL ERROR: DATABASE_AUTH_TOKEN is missing !!!")
         sys.exit(1)
     
-    # 2. ホスト名を抽出
+    # 2. LIBSQL_AUTH_TOKEN 環境変数を設定（sqlalchemy-libsql が自動的に読み取る）
+    os.environ["LIBSQL_AUTH_TOKEN"] = auth_token
+    print("--- [SETUP] Set LIBSQL_AUTH_TOKEN environment variable")
+    
+    # 3. ホスト名を抽出
     host = env_db_url.replace("libsql://", "").replace("https://", "").split("?")[0]
     
-    # 3. 正しい形式で URL を構築
-    # sqlalchemy-libsql は以下の形式を期待：
-    # sqlite+libsql://ホスト名?authToken=xxx&secure=true
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{host}?authToken={auth_token}&secure=true"
+    # 4. シンプルな URL（トークンは環境変数から自動取得される）
+    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{host}"
     
     print(f"--- [SETUP] Host: {host}")
-    print(f"--- [SETUP] Connecting with secure=true")
+    print(f"--- [SETUP] URL: {SQLALCHEMY_DATABASE_URL}")
 
 else:
     # ローカル開発用
