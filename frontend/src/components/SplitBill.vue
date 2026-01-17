@@ -2,7 +2,7 @@
   <div class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen font-sans">
     <header class="bg-white dark:bg-slate-800 shadow-md">
       <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-        <h1 @click="goHome" class="text-2xl font-bold text-slate-900 dark:text-white cursor-pointer">割り勘アプリ</h1>
+        <h1 @click="goHome" class="text-2xl font-bold text-slate-900 dark:text-white cursor-pointer">割り勘.com</h1>
         <div class="flex items-center gap-4">
            <p v-if="billData" class="text-sm text-slate-600 dark:text-slate-400 hidden sm:block">
             <strong>名目:</strong> {{ billData.description }}
