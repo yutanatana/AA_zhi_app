@@ -26,9 +26,11 @@ if "turso.io" in env_db_url:
 
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
+        poolclass=NullPool,
         echo=False,
-        poolclass=NullPool,      # ★超重要
-    )
+        isolation_level="AUTOCOMMIT",  # ★これが決定打
+)
+
 
 else:
     # ローカル SQLite
