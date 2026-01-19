@@ -24,7 +24,7 @@ if "turso.io" in env_db_url:
     )
 
     # 【重要】プロトコルを "sqlite+libsql://" に指定して構築
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{host}?authToken={auth_token}&secure=true"
+    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://:{auth_token}@{host}?secure=true"
 
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
