@@ -5,8 +5,8 @@ import os
 import sys
 
 # 環境変数を取得
-env_db_url = os.getenv("DATABASE_URL", "").strip()
-auth_token = os.getenv("DATABASE_AUTH_TOKEN", "").strip()
+env_db_url = "libsql://aa-zhi-db-yutanatana.aws-eu-west-1.turso.io"
+auth_token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3Njg2Mjc1NDQsImlkIjoiNTA1MjlkOTYtNmM5ZS00YWJlLTkwMmUtNzVkZDkxNzdlZWNiIiwicmlkIjoiOTBiM2U0YzAtYzJhNC00MTM2LTkwN2QtYjlmN2JlZDQ2MGE0In0.lvFjMzxNRwOJytY3MUt4jybeX-g_m4VHwQArfbmoawKJF8JPb9Ve1GaeqA-BKGR7xfm_mOvbgQS0EoHF_bmNBA"
 
 # 【デバッグログ】
 print("=" * 50)
