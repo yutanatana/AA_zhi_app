@@ -8,7 +8,7 @@ import sys
 env_db_url = os.getenv("DATABASE_URL", "").strip()
 auth_token = os.getenv("DATABASE_AUTH_TOKEN", "").strip()
 
-# 【デバッグログ追加】
+# 【デバッグログ】
 print("=" * 50)
 print("DEBUG: Database Configuration")
 print("=" * 50)
@@ -20,8 +20,6 @@ print(f"AUTH_TOKEN starts with 'ey': {auth_token.startswith('ey') if auth_token 
 print(f"AUTH_TOKEN first 20 chars: {auth_token[:20]}..." if len(auth_token) > 20 else f"AUTH_TOKEN: {auth_token}")
 print("=" * 50)
 
-# URLの先頭を正規化（postgres://などが来ても対応できるように）
-# Tursoを使う場合は通常 "libsql://" で始まりますが、SQLAlchemyには "sqlite+libsql://" と伝える必要があります
 if "turso.io" in env_db_url:
     if not auth_token:
         sys.exit("DATABASE_AUTH_TOKEN missing")
@@ -31,27 +29,32 @@ if "turso.io" in env_db_url:
         env_db_url
         .replace("libsql://", "")
         .replace("https://", "")
-        .replace("sqlite+libsql://", "") # 念のためこれも削除対象に
+        .replace("sqlite+libsql://", "")
         .split("?")[0]
     )
 
-    # 【デバッグログ追加】
     print(f"Extracted host: {host}")
-    print(f"Connection URL format: sqlite+libsql://:***@{host}?secure=true")
+    
+    # 【修正】connect_argsでトークンを渡す方式に変更
+    # トークンをURLに埋め込まず、接続パラメータとして渡す
+    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://{host}"
+    
+    print(f"Connection URL: {SQLALCHEMY_DATABASE_URL}")
+    print(f"Passing auth_token via connect_args")
     print("=" * 50)
-
-    # 【重要】プロトコルを "sqlite+libsql://" に指定して構築
-    SQLALCHEMY_DATABASE_URL = f"sqlite+libsql://:{auth_token}@{host}?secure=true"
 
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
+        connect_args={
+            "auth_token": auth_token,
+            "secure": True
+        },
         poolclass=NullPool,
         echo=False,
     )
 
 else:
-    # ローカル開発用（Render以外の環境で動かす場合）
-    # ※Renderでこれを使うとデプロイのたびにデータが消えるので注意
+    # ローカル開発用
     print("Using local SQLite database")
     engine = create_engine(
         "sqlite:///./sql_app.db",
