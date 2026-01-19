@@ -4,3 +4,4 @@ sqlalchemy
 pydantic
 libsql-client
 sqlalchemy-libsql
+python-3.12.8
