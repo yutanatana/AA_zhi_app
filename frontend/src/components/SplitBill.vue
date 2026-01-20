@@ -275,7 +275,8 @@ const addExpense = async () => {
   try {
     await axios.post(`${API_URL}/bills/${billId.value}/expenses`, newExpense.value);
     await new Promise(resolve => setTimeout(resolve, 500)); // Prevent double-click
-    newExpense.value = { description: '', amount: null, payer_id: '', beneficiary_ids: [] };
+    const allMemberIds = billData.value ? billData.value.members.map(m => m.id) : [];
+    newExpense.value = { description: '', amount: null, payer_id: '', beneficiary_ids: allMemberIds };
     await fetchBill(billId.value); // Refresh data
   } catch (err) {
     handleApiError(err, "立替の追加に失敗しました。");
@@ -322,6 +323,12 @@ const copyUrl = () => {
 const goHome = () => {
   router.push('/');
 };
+
+watch(() => billData.value?.members, (newMembers, oldMembers) => {
+  if (newMembers && (!oldMembers || newMembers.length !== oldMembers.length)) {
+    newExpense.value.beneficiary_ids = newMembers.map(m => m.id);
+  }
+}, { deep: true });
 
 watch(() => route.params.id, (newId) => {
   billId.value = newId;
