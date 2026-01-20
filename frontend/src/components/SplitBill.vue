@@ -35,8 +35,8 @@
             <label for="description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">名目 (例: 旅行、飲み会)</label>
             <input id="description" v-model="newBill.description" type="text" required placeholder="名目を入力" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
           </div>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
-            作成する
+          <button type="submit" :disabled="submitting || loading" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
+            {{ (submitting || loading) ? '作成中...' : '作成する' }}
           </button>
         </form>
       </div>
@@ -57,7 +57,9 @@
              <p v-else class="text-slate-500 dark:text-slate-400 text-sm mb-4">まだメンバーがいません。</p>
             <form @submit.prevent="addMember" class="flex gap-2">
               <input v-model="newMemberName" type="text" placeholder="新しいメンバー名" required class="flex-grow px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"/>
-              <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">追加</button>
+              <button type="submit" :disabled="submitting" class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                {{ submitting ? '追加中' : '追加' }}
+              </button>
             </form>
           </section>
 
@@ -93,7 +95,9 @@
                   </div>
                 </div>
               </div>
-              <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors">立替を追加</button>
+              <button type="submit" :disabled="submitting" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors">
+                {{ submitting ? '追加中...' : '立替を追加' }}
+              </button>
             </form>
           </section>
         </div>
@@ -156,6 +160,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const billId = ref(route.params.id || null);
 const billData = ref(null);
 const loading = ref(false);
+const submitting = ref(false);
 const error = ref(null);
 
 const newBill = ref({ description: '' });
@@ -191,7 +196,8 @@ const fetchBill = async (id) => {
 };
 
 const createBill = async () => {
-  loading.value = true;
+  if (submitting.value) return;
+  submitting.value = true;
   error.value = null;
   try {
     const response = await axios.post(`${API_URL}/bills`, newBill.value);
@@ -199,34 +205,40 @@ const createBill = async () => {
   } catch (err) {
     handleApiError(err, "作成に失敗しました。");
   } finally {
-    loading.value = false;
+    submitting.value = false;
   }
 };
 
 const addMember = async () => {
-  if (!newMemberName.value.trim()) return;
+  if (!newMemberName.value.trim() || submitting.value) return;
+  submitting.value = true;
   error.value = null;
   try {
     await axios.post(`${API_URL}/bills/${billId.value}/members`, { name: newMemberName.value });
     newMemberName.value = '';
-    fetchBill(billId.value); // Refresh data
+    await fetchBill(billId.value); // Refresh data
   } catch (err) {
     handleApiError(err, "メンバーの追加に失敗しました。");
+  } finally {
+    submitting.value = false;
   }
 };
 
 const addExpense = async () => {
-  if (newExpense.value.beneficiary_ids.length === 0) {
-      error.value = "対象者を1人以上選択してください。";
+  if (newExpense.value.beneficiary_ids.length === 0 || submitting.value) {
+      if (!submitting.value) error.value = "対象者を1人以上選択してください。";
       return;
   }
+  submitting.value = true;
   error.value = null;
   try {
     await axios.post(`${API_URL}/bills/${billId.value}/expenses`, newExpense.value);
     newExpense.value = { description: '', amount: null, payer_id: '', beneficiary_ids: [] };
-    fetchBill(billId.value); // Refresh data
+    await fetchBill(billId.value); // Refresh data
   } catch (err) {
     handleApiError(err, "立替の追加に失敗しました。");
+  } finally {
+    submitting.value = false;
   }
 };
 
