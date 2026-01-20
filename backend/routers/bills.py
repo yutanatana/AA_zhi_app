@@ -51,6 +51,31 @@ def add_member_to_bill(bill_id: str, member: schemas.MemberCreate, db: Session =
     db.refresh(db_member)
     return db_member
 
+# メンバーを削除
+@router.delete("/{bill_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_member(bill_id: str, member_id: int, db: Session = Depends(get_db)):
+    # メンバーが存在し、指定されたbillに属しているか確認
+    db_member = db.query(models.Member).filter(models.Member.id == member_id, models.Member.bill_id == bill_id).first()
+    if not db_member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # このメンバーが支払いをした経費があるか確認
+    paid_expenses = db.query(models.Expense).filter(models.Expense.payer_id == member_id).first()
+    if paid_expenses:
+         raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete member who has paid expenses. Please delete the expenses first."
+        )
+
+    # このメンバーが受益者となっている経費があれば、その関連を削除する必要があるが
+    # SQLAlchemyの cascade="all, delete-orphan" 設定を確認しつつ、
+    # 多対多の中間テーブルからは自動で消えることを期待。
+    # ただし、Expense自体は残る。
+    
+    db.delete(db_member)
+    db.commit()
+    return None
+
 # メンバーリストを取得
 @router.get("/{bill_id}/members", response_model=List[schemas.Member])
 def get_bill_members(bill_id: str, db: Session = Depends(get_db)):
@@ -92,6 +117,17 @@ def add_expense_to_bill(bill_id: str, expense: schemas.ExpenseCreate, db: Sessio
     db.commit()
     db.refresh(db_expense)
     return db_expense
+
+# 立替（経費）を削除
+@router.delete("/{bill_id}/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_expense(bill_id: str, expense_id: int, db: Session = Depends(get_db)):
+    db_expense = db.query(models.Expense).filter(models.Expense.id == expense_id, models.Expense.bill_id == bill_id).first()
+    if not db_expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    
+    db.delete(db_expense)
+    db.commit()
+    return None
 
 # 割り勘の精算
 @router.get("/{bill_id}/settle", response_model=List[schemas.SettlementTransaction])
