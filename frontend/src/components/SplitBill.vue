@@ -91,7 +91,7 @@
                 <label class="block text-sm font-medium mb-1">対象者 (複数選択可)</label>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                    <div>
-                      <input type="checkbox" id="select-all" @change="toggleSelectAllBeneficiaries" class="mr-2"/>
+                      <input type="checkbox" id="select-all" v-model="allBeneficiariesSelected" class="mr-2"/>
                       <label for="select-all">全員</label>
                   </div>
                   <div v-for="member in billData.members" :key="member.id">
@@ -177,6 +177,22 @@ const newExpense = ref({
 const settlement = ref([]);
 
 const currentUrl = computed(() => window.location.href);
+
+const allBeneficiariesSelected = computed({
+  get() {
+    if (!billData.value?.members?.length) {
+      return false;
+    }
+    return billData.value.members.length > 0 && newExpense.value.beneficiary_ids.length === billData.value.members.length;
+  },
+  set(value) {
+    if (value) {
+      newExpense.value.beneficiary_ids = billData.value.members.map(m => m.id);
+    } else {
+      newExpense.value.beneficiary_ids = [];
+    }
+  }
+});
 
 const formatCurrency = (value) => {
   if (typeof value !== 'number') return '';
@@ -289,14 +305,6 @@ const addExpense = async () => {
   }
 };
 
-const toggleSelectAllBeneficiaries = (event) => {
-    if (event.target.checked) {
-        newExpense.value.beneficiary_ids = billData.value.members.map(m => m.id);
-    } else {
-        newExpense.value.beneficiary_ids = [];
-    }
-}
-
 const handleApiError = (err, defaultMessage) => {
   if (err.response && err.response.data && err.response.data.detail) {
     error.value = err.response.data.detail;
@@ -330,4 +338,3 @@ watch(() => route.params.id, (newId) => {
 }, { immediate: true });
 
 </script>
-
