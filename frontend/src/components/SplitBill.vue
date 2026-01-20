@@ -35,8 +35,8 @@
             <label for="description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">名目 (例: 旅行、飲み会)</label>
             <input id="description" v-model="newBill.description" type="text" required placeholder="名目を入力" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
           </div>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
-            作成する
+          <button type="submit" :disabled="submitting || loading" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
+            {{ (submitting || loading) ? '作成中...' : '作成する' }}
           </button>
         </form>
       </div>
@@ -52,12 +52,19 @@
             <ul v-if="billData.members?.length > 0" class="space-y-2 mb-4">
               <li v-for="member in billData.members" :key="member.id" class="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
                 <span class="font-medium">{{ member.name }}</span>
+                <button @click="deleteMember(member.id)" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition" title="削除">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
+                </button>
               </li>
             </ul>
              <p v-else class="text-slate-500 dark:text-slate-400 text-sm mb-4">まだメンバーがいません。</p>
             <form @submit.prevent="addMember" class="flex gap-2">
               <input v-model="newMemberName" type="text" placeholder="新しいメンバー名" required class="flex-grow px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"/>
-              <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">追加</button>
+              <button type="submit" :disabled="submitting" class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                {{ submitting ? '追加中' : '追加' }}
+              </button>
             </form>
           </section>
 
@@ -93,7 +100,9 @@
                   </div>
                 </div>
               </div>
-              <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors">立替を追加</button>
+              <button type="submit" :disabled="submitting" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors">
+                {{ submitting ? '追加中...' : '立替を追加' }}
+              </button>
             </form>
           </section>
         </div>
@@ -103,14 +112,21 @@
            <section class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-6">
               <h3 class="text-xl font-semibold mb-4">立替リスト</h3>
               <div v-if="billData.expenses?.length > 0" class="space-y-3">
-                <div v-for="expense in billData.expenses" :key="expense.id" class="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg text-sm">
-                  <p class="font-bold text-base">{{ expense.description }} - {{ formatCurrency(expense.amount) }}</p>
-                  <p class="text-slate-600 dark:text-slate-400">
-                    <span class="font-medium">{{ expense.payer.name }}</span> が支払い
-                  </p>
-                   <p class="text-slate-600 dark:text-slate-400 text-xs">
-                    対象: {{ expense.beneficiaries.map(b => b.name).join(', ') }}
-                  </p>
+                <div v-for="expense in billData.expenses" :key="expense.id" class="flex justify-between items-start bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
+                  <div class="text-sm">
+                    <p class="font-bold text-base">{{ expense.description }} - {{ formatCurrency(expense.amount) }}</p>
+                    <p class="text-slate-600 dark:text-slate-400">
+                      <span class="font-medium">{{ expense.payer.name }}</span> が支払い
+                    </p>
+                    <p class="text-slate-600 dark:text-slate-400 text-xs">
+                      対象: {{ expense.beneficiaries.map(b => b.name).join(', ') }}
+                    </p>
+                  </div>
+                  <button @click="deleteExpense(expense.id)" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition flex-shrink-0 ml-2" title="削除">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
               </div>
               <p v-else class="text-slate-500 dark:text-slate-400">まだ立替がありません。</p>
@@ -156,6 +172,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const billId = ref(route.params.id || null);
 const billData = ref(null);
 const loading = ref(false);
+const submitting = ref(false);
 const error = ref(null);
 
 const newBill = ref({ description: '' });
@@ -191,7 +208,8 @@ const fetchBill = async (id) => {
 };
 
 const createBill = async () => {
-  loading.value = true;
+  if (submitting.value) return;
+  submitting.value = true;
   error.value = null;
   try {
     const response = await axios.post(`${API_URL}/bills`, newBill.value);
@@ -199,34 +217,70 @@ const createBill = async () => {
   } catch (err) {
     handleApiError(err, "作成に失敗しました。");
   } finally {
-    loading.value = false;
+    submitting.value = false;
   }
 };
 
 const addMember = async () => {
-  if (!newMemberName.value.trim()) return;
+  if (!newMemberName.value.trim() || submitting.value) return;
+  submitting.value = true;
   error.value = null;
   try {
     await axios.post(`${API_URL}/bills/${billId.value}/members`, { name: newMemberName.value });
+    await new Promise(resolve => setTimeout(resolve, 500)); // Prevent double-click
     newMemberName.value = '';
-    fetchBill(billId.value); // Refresh data
+    await fetchBill(billId.value); // Refresh data
   } catch (err) {
     handleApiError(err, "メンバーの追加に失敗しました。");
+  } finally {
+    submitting.value = false;
+  }
+};
+
+const deleteMember = async (memberId) => {
+  if (!confirm('本当にこのメンバーを削除しますか？')) return;
+  loading.value = true; // Use loading state for global indicator or specific one
+  error.value = null;
+  try {
+    await axios.delete(`${API_URL}/bills/${billId.value}/members/${memberId}`);
+    await fetchBill(billId.value);
+  } catch (err) {
+    handleApiError(err, "メンバーの削除に失敗しました。支払履歴がある場合は削除できません。");
+  } finally {
+    loading.value = false;
+  }
+};
+
+const deleteExpense = async (expenseId) => {
+  if (!confirm('本当にこの立替を削除しますか？')) return;
+  loading.value = true;
+  error.value = null;
+  try {
+    await axios.delete(`${API_URL}/bills/${billId.value}/expenses/${expenseId}`);
+    await fetchBill(billId.value);
+  } catch (err) {
+    handleApiError(err, "立替の削除に失敗しました。");
+  } finally {
+    loading.value = false;
   }
 };
 
 const addExpense = async () => {
-  if (newExpense.value.beneficiary_ids.length === 0) {
-      error.value = "対象者を1人以上選択してください。";
+  if (newExpense.value.beneficiary_ids.length === 0 || submitting.value) {
+      if (!submitting.value) error.value = "対象者を1人以上選択してください。";
       return;
   }
+  submitting.value = true;
   error.value = null;
   try {
     await axios.post(`${API_URL}/bills/${billId.value}/expenses`, newExpense.value);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Prevent double-click
     newExpense.value = { description: '', amount: null, payer_id: '', beneficiary_ids: [] };
-    fetchBill(billId.value); // Refresh data
+    await fetchBill(billId.value); // Refresh data
   } catch (err) {
     handleApiError(err, "立替の追加に失敗しました。");
+  } finally {
+    submitting.value = false;
   }
 };
 
