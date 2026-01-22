@@ -46,6 +46,7 @@
         
         <!-- Left Column: Members & Expenses -->
         <div class="space-y-8">
+          <h2 v-if="billData" class="text-2xl font-bold mb-4 text-center lg:text-left">{{ billData.description }}</h2>
           <!-- Members -->
           <section class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-6">
             <h3 class="text-xl font-semibold mb-4">メンバー</h3>
