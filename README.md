@@ -8,7 +8,7 @@
   バックエンド (Port: 8000)
    1 cd backend
    2 pip install -r requirements.txt
-   3 uvicorn main:app --reload
+   3 python3 -m uvicorn main:app --reload --port 8000
 
   フロントエンド (Port: 5173)
 

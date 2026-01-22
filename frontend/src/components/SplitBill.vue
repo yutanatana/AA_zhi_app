@@ -1,59 +1,153 @@
 <template>
-  <div class="split-bill-container">
-    <h1>割り勘アプリ (MVP)</h1>
-
-    <!-- Loading State -->
-    <div v-if="loading">Loading...</div>
-
-    <!-- Error State -->
-    <div v-if="error" class="error">{{ error }}</div>
-
-    <!-- Create Bill Form (Home) -->
-    <div v-if="!billId && !loading" class="create-bill">
-      <h2>新しい割り勘を作成</h2>
-      <form @submit.prevent="createBill">
-        <div class="form-group">
-          <label for="description">名目 (例: 飲み会)</label>
-          <input
-            id="description"
-            v-model="newBill.description"
-            type="text"
-            required
-            placeholder="名目を入力"
-          />
-        </div>
-        <div class="form-group">
-          <label for="amount">合計金額 (円)</label>
-          <input
-            id="amount"
-            v-model.number="newBill.total_amount"
-            type="number"
-            required
-            placeholder="金額を入力"
-          />
-        </div>
-        <button type="submit">URLを発行する</button>
-      </form>
-    </div>
-
-    <!-- Bill Details (Shared View) -->
-    <div v-if="billId && billData" class="bill-details">
-      <h2>割り勘詳細</h2>
-      <div class="card">
-        <p><strong>名目:</strong> {{ billData.description }}</p>
-        <p><strong>合計金額:</strong> {{ formatCurrency(billData.total_amount) }}</p>
-      </div>
-
-      <div class="share-section">
-        <p>このページを共有してください:</p>
-        <div class="url-box">
-          <input type="text" readonly :value="currentUrl" />
-          <button @click="copyUrl">コピー</button>
+  <div class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen font-sans">
+    <header class="bg-white dark:bg-slate-800 shadow-md">
+      <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <h1 @click="goHome" class="text-2xl font-bold text-slate-900 dark:text-white cursor-pointer">割り勘.com</h1>
+        <div class="flex items-center gap-4">
+           <p v-if="billData" class="text-sm text-slate-600 dark:text-slate-400 hidden sm:block">
+            <strong>名目:</strong> {{ billData.description }}
+          </p>
+          <button v-if="billId" @click="copyUrl" title="Share URL" class="p-2 rounded-full bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg>
+          </button>
         </div>
       </div>
-      
-      <button @click="goHome" class="secondary-btn">新しく作成する</button>
-    </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8">
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center p-8">
+        <svg class="animate-spin h-8 w-8 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <p class="mt-2 text-slate-600 dark:text-slate-400">Loading...</p>
+      </div>
+
+      <!-- Error State -->
+      <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
+        <strong class="font-bold">エラー:</strong>
+        <span class="block sm:inline">{{ error }}</span>
+      </div>
+
+      <!-- Create Bill Form (Home) -->
+      <div v-if="!billId && !loading" class="max-w-md mx-auto bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8">
+        <h2 class="text-2xl font-semibold mb-6 text-center">新しい割り勘を作成</h2>
+        <form @submit.prevent="createBill" class="space-y-6">
+          <div>
+            <label for="description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">名目 (例: 旅行、飲み会)</label>
+            <input id="description" v-model="newBill.description" type="text" required placeholder="名目を入力" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+          </div>
+          <button type="submit" :disabled="submitting || loading" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
+            {{ (submitting || loading) ? '作成中...' : '作成する' }}
+          </button>
+        </form>
+      </div>
+
+      <!-- Bill Details View -->
+      <div v-if="billId && billData && !loading" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Left Column: Members & Expenses -->
+        <div class="space-y-8">
+          <!-- Members -->
+          <section class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-6">
+            <h3 class="text-xl font-semibold mb-4">メンバー</h3>
+            <ul v-if="billData.members?.length > 0" class="space-y-2 mb-4">
+              <li v-for="member in billData.members" :key="member.id" class="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                <span class="font-medium">{{ member.name }}</span>
+                <button @click="deleteMember(member.id)" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition" title="削除">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </li>
+            </ul>
+             <p v-else class="text-slate-500 dark:text-slate-400 text-sm mb-4">まだメンバーがいません。</p>
+            <form @submit.prevent="addMember" class="flex gap-2">
+              <input v-model="newMemberName" type="text" placeholder="新しいメンバー名" required class="flex-grow px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"/>
+              <button type="submit" :disabled="submitting" class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                {{ submitting ? '追加中' : '追加' }}
+              </button>
+            </form>
+          </section>
+
+          <!-- Add Expense -->
+          <section class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-6">
+            <h3 class="text-xl font-semibold mb-4">立替の追加</h3>
+            <form @submit.prevent="addExpense" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">内容</label>
+                <input v-model="newExpense.description" type="text" required placeholder="例: 夕食代" class="w-full input"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">金額</label>
+                <input v-model.number="newExpense.amount" type="number" required placeholder="例: 8000" class="w-full input"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">支払った人</label>
+                <select v-model="newExpense.payer_id" required class="w-full input">
+                  <option disabled value="">選択してください</option>
+                  <option v-for="member in billData.members" :key="member.id" :value="member.id">{{ member.name }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">対象者 (複数選択可)</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                   <div>
+                      <input type="checkbox" id="select-all" v-model="allBeneficiariesSelected" class="mr-2"/>
+                      <label for="select-all">全員</label>
+                  </div>
+                  <div v-for="member in billData.members" :key="member.id">
+                    <input type="checkbox" :id="'mem-'+member.id" :value="member.id" v-model="newExpense.beneficiary_ids" class="mr-2"/>
+                    <label :for="'mem-'+member.id">{{ member.name }}</label>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" :disabled="submitting" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors">
+                {{ submitting ? '追加中...' : '立替を追加' }}
+              </button>
+            </form>
+          </section>
+        </div>
+
+        <!-- Right Column: Expense List & Settle -->
+        <div class="space-y-8">
+           <section class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-6">
+              <h3 class="text-xl font-semibold mb-4">立替リスト</h3>
+              <div v-if="billData.expenses?.length > 0" class="space-y-3">
+                <div v-for="expense in billData.expenses" :key="expense.id" class="flex justify-between items-start bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
+                  <div class="text-sm">
+                    <p class="font-bold text-base">{{ expense.description }} - {{ formatCurrency(expense.amount) }}</p>
+                    <p class="text-slate-600 dark:text-slate-400">
+                      <span class="font-medium">{{ expense.payer.name }}</span> が支払い
+                    </p>
+                    <p class="text-slate-600 dark:text-slate-400 text-xs">
+                      対象: {{ expense.beneficiaries.map(b => b.name).join(', ') }}
+                    </p>
+                  </div>
+                  <button @click="deleteExpense(expense.id)" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition flex-shrink-0 ml-2" title="削除">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <p v-else class="text-slate-500 dark:text-slate-400">まだ立替がありません。</p>
+           </section>
+           <section class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-6">
+              <h3 class="text-xl font-semibold mb-4">精算結果</h3>
+              <div v-if="settlement.length > 0" class="space-y-4">
+                  <div v-for="(trans, index) in settlement" :key="index" class="flex items-center justify-between bg-slate-100 dark:bg-slate-700 p-4 rounded-lg">
+                      <span class="font-medium text-slate-800 dark:text-slate-200">{{ trans.from_member_name }}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                      <span class="font-medium text-slate-800 dark:text-slate-200">{{ trans.to_member_name }}</span>
+                      <span class="font-bold text-lg text-blue-600 dark:text-blue-400">{{ formatCurrency(trans.amount) }}</span>
+                  </div>
+              </div>
+              <p v-else-if="!billData || !billData.expenses || billData.expenses.length === 0" class="text-slate-500 dark:text-slate-400">立替が追加されると、ここに精算結果が自動で表示されます。</p>
+              <p v-else class="text-center text-slate-600 dark:text-slate-400">精算は不要です。全員の貸し借りは0です。</p>
+           </section>
+        </div>
+      </div>
+    </main>
+    
   </div>
 </template>
 
@@ -64,24 +158,54 @@ import axios from 'axios';
 
 const route = useRoute();
 const router = useRouter();
-
-// API Base URL - adjust port if backend runs elsewhere
-const API_URL = 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const billId = ref(route.params.id || null);
 const billData = ref(null);
 const loading = ref(false);
+const submitting = ref(false);
 const error = ref(null);
 
-const newBill = ref({
+const newBill = ref({ description: '' });
+const newMemberName = ref('');
+const newExpense = ref({
   description: '',
-  total_amount: null
+  amount: null,
+  payer_id: '',
+  beneficiary_ids: []
 });
+const settlement = ref([]);
 
 const currentUrl = computed(() => window.location.href);
 
+const allBeneficiariesSelected = computed({
+  get() {
+    if (!billData.value?.members?.length) {
+      return false;
+    }
+    return billData.value.members.length > 0 && newExpense.value.beneficiary_ids.length === billData.value.members.length;
+  },
+  set(value) {
+    if (value) {
+      newExpense.value.beneficiary_ids = billData.value.members.map(m => m.id);
+    } else {
+      newExpense.value.beneficiary_ids = [];
+    }
+  }
+});
+
 const formatCurrency = (value) => {
+  if (typeof value !== 'number') return '';
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(value);
+};
+
+const fetchSettlement = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/bills/${billId.value}/settle`);
+    settlement.value = response.data;
+  } catch (err) {
+    console.error("Failed to fetch settlement:", err);
+  }
 };
 
 const fetchBill = async (id) => {
@@ -90,131 +214,127 @@ const fetchBill = async (id) => {
   try {
     const response = await axios.get(`${API_URL}/bills/${id}`);
     billData.value = response.data;
+    if (billData.value.members.length > 0 && billData.value.expenses.length > 0) {
+      await fetchSettlement();
+    } else {
+      settlement.value = [];
+    }
   } catch (err) {
     console.error(err);
-    error.value = "割り勘情報の取得に失敗しました。URLが正しいか確認してください。";
+    handleApiError(err, "割り勘情報の取得に失敗しました。");
   } finally {
     loading.value = false;
   }
 };
 
 const createBill = async () => {
-  loading.value = true;
+  if (submitting.value) return;
+  submitting.value = true;
   error.value = null;
   try {
     const response = await axios.post(`${API_URL}/bills`, newBill.value);
-    const createdId = response.data.id;
-    // Navigate to the view page for the created bill
-    router.push(`/${createdId}`);
+    router.push(`/${response.data.id}`);
   } catch (err) {
-    console.error(err);
-    error.value = "作成に失敗しました。";
+    handleApiError(err, "作成に失敗しました。");
+  } finally {
+    submitting.value = false;
+  }
+};
+
+const addMember = async () => {
+  if (!newMemberName.value.trim() || submitting.value) return;
+  submitting.value = true;
+  error.value = null;
+  try {
+    await axios.post(`${API_URL}/bills/${billId.value}/members`, { name: newMemberName.value });
+    await new Promise(resolve => setTimeout(resolve, 500)); // Prevent double-click
+    newMemberName.value = '';
+    await fetchBill(billId.value); // Refresh data
+  } catch (err) {
+    handleApiError(err, "メンバーの追加に失敗しました。");
+  } finally {
+    submitting.value = false;
+  }
+};
+
+const deleteMember = async (memberId) => {
+  if (!confirm('本当にこのメンバーを削除しますか？')) return;
+  loading.value = true; // Use loading state for global indicator or specific one
+  error.value = null;
+  try {
+    await axios.delete(`${API_URL}/bills/${billId.value}/members/${memberId}`);
+    await fetchBill(billId.value);
+  } catch (err) {
+    handleApiError(err, "メンバーの削除に失敗しました。支払履歴がある場合は削除できません。");
   } finally {
     loading.value = false;
   }
 };
 
+const deleteExpense = async (expenseId) => {
+  if (!confirm('本当にこの立替を削除しますか？')) return;
+  loading.value = true;
+  error.value = null;
+  try {
+    await axios.delete(`${API_URL}/bills/${billId.value}/expenses/${expenseId}`);
+    await fetchBill(billId.value);
+  } catch (err) {
+    handleApiError(err, "立替の削除に失敗しました。");
+  } finally {
+    loading.value = false;
+  }
+};
+
+const addExpense = async () => {
+  if (newExpense.value.beneficiary_ids.length === 0 || submitting.value) {
+      if (!submitting.value) error.value = "対象者を1人以上選択してください。";
+      return;
+  }
+  submitting.value = true;
+  error.value = null;
+  try {
+    await axios.post(`${API_URL}/bills/${billId.value}/expenses`, newExpense.value);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Prevent double-click
+    const allMemberIds = billData.value ? billData.value.members.map(m => m.id) : [];
+    newExpense.value = { description: '', amount: null, payer_id: '', beneficiary_ids: allMemberIds };
+    await fetchBill(billId.value); // Refresh data
+  } catch (err) {
+    handleApiError(err, "立替の追加に失敗しました。");
+  } finally {
+    submitting.value = false;
+  }
+};
+
+const handleApiError = (err, defaultMessage) => {
+  if (err.response && err.response.data && err.response.data.detail) {
+    error.value = err.response.data.detail;
+  } else {
+    error.value = defaultMessage;
+  }
+  console.error(err);
+};
+
 const copyUrl = () => {
-  navigator.clipboard.writeText(currentUrl.value).then(() => {
-    alert('URLをコピーしました！');
-  });
+  navigator.clipboard.writeText(currentUrl.value).then(() => alert('URLをコピーしました！'));
 };
 
 const goHome = () => {
   router.push('/');
-  billData.value = null;
-  newBill.value = { description: '', total_amount: null };
 };
 
-// Watch for route changes to handle navigation between IDs or back to home
+watch(() => billData.value?.members, (newMembers, oldMembers) => {
+  if (newMembers && (!oldMembers || newMembers.length !== oldMembers.length)) {
+    newExpense.value.beneficiary_ids = newMembers.map(m => m.id);
+  }
+}, { deep: true });
+
 watch(() => route.params.id, (newId) => {
   billId.value = newId;
+  error.value = null;
+  billData.value = null; // Reset data to prevent showing old state
   if (newId) {
     fetchBill(newId);
-  } else {
-    billData.value = null;
   }
-});
+}, { immediate: true });
 
-onMounted(() => {
-  if (billId.value) {
-    fetchBill(billId.value);
-  }
-});
 </script>
-
-<style scoped>
-.split-bill-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-family: sans-serif;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-  text-align: left;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-}
-
-input {
-  width: 100%;
-  padding: 0.5rem;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-button {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-button:hover {
-  background-color: #3aa876;
-}
-
-.secondary-btn {
-  background-color: #666;
-  margin-top: 1rem;
-}
-
-.error {
-  color: red;
-  margin-bottom: 1rem;
-}
-
-.card {
-  border: 1px solid #ddd;
-  padding: 1rem;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  text-align: left;
-}
-
-.share-section {
-  margin-top: 2rem;
-  padding: 1rem;
-  background-color: #eef;
-  border-radius: 8px;
-}
-
-.url-box {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.url-box input {
-  flex: 1;
-}
-</style>
