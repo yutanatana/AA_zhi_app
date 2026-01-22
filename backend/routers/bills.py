@@ -12,6 +12,12 @@ router = APIRouter(
     tags=["bills"]
 )
 
+# 割り勘リストの取得
+@router.get("", response_model=List[schemas.BillInfo])
+def read_bills(db: Session = Depends(get_db)):
+    bills = db.query(models.Bill).order_by(models.Bill.id.desc()).all()
+    return bills
+
 # 割り勘の新規作成
 @router.post("", response_model=schemas.Bill, status_code=status.HTTP_201_CREATED)
 def create_bill(bill: schemas.BillCreate, db: Session = Depends(get_db)):

@@ -46,6 +46,13 @@ class Bill(BaseModel):
     class Config:
         orm_mode = True
 
+class BillInfo(BaseModel):
+    id: str
+    description: str
+
+    class Config:
+        orm_mode = True
+
 # --- Settlement Schemas ---
 class SettlementTransaction(BaseModel):
     from_member_id: int

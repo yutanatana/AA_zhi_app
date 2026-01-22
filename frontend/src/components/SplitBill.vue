@@ -27,18 +27,33 @@
         <span class="block sm:inline">{{ error }}</span>
       </div>
 
-      <!-- Create Bill Form (Home) -->
-      <div v-if="!billId && !loading" class="max-w-md mx-auto bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8">
-        <h2 class="text-2xl font-semibold mb-6 text-center">新しい割り勘を作成</h2>
-        <form @submit.prevent="createBill" class="space-y-6">
-          <div>
-            <label for="description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">名目 (例: 旅行、飲み会)</label>
-            <input id="description" v-model="newBill.description" type="text" required placeholder="名目を入力" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
-          </div>
-          <button type="submit" :disabled="submitting || loading" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
-            {{ (submitting || loading) ? '作成中...' : '作成する' }}
-          </button>
-        </form>
+      <!-- Home View: Bill List + Create Form -->
+      <div v-if="!billId && !loading" class="max-w-md mx-auto">
+        <!-- Bill List -->
+        <section v-if="billList.length > 0" class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8 mb-8">
+          <h2 class="text-2xl font-semibold mb-6 text-center">既存の割り勘</h2>
+          <ul class="space-y-3">
+            <li v-for="bill in billList" :key="bill.id">
+              <router-link :to="'/' + bill.id" class="block w-full text-left bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 p-4 rounded-lg transition">
+                <span class="font-medium">{{ bill.description }}</span>
+              </router-link>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Create New Bill Form -->
+        <div class="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8">
+          <h2 class="text-2xl font-semibold mb-6 text-center">新しい割り勘を作成</h2>
+          <form @submit.prevent="createBill" class="space-y-6">
+            <div>
+              <label for="description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">名目 (例: 旅行、飲み会)</label>
+              <input id="description" v-model="newBill.description" type="text" required placeholder="名目を入力" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+            </div>
+            <button type="submit" :disabled="submitting || loading" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-slate-800 transition-colors">
+              {{ (submitting || loading) ? '作成中...' : '作成する' }}
+            </button>
+          </form>
+        </div>
       </div>
 
       <!-- Bill Details View -->
@@ -91,7 +106,7 @@
                 <label class="block text-sm font-medium mb-1">対象者 (複数選択可)</label>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                    <div>
-                      <input type="checkbox" id="select-all" v-model="allBeneficiariesSelected" class="mr-2"/>
+                      <input type="checkbox" id="select-all" @change="toggleSelectAllBeneficiaries" class="mr-2"/>
                       <label for="select-all">全員</label>
                   </div>
                   <div v-for="member in billData.members" :key="member.id">
@@ -162,6 +177,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const billId = ref(route.params.id || null);
 const billData = ref(null);
+const billList = ref([]);
 const loading = ref(false);
 const submitting = ref(false);
 const error = ref(null);
@@ -178,25 +194,22 @@ const settlement = ref([]);
 
 const currentUrl = computed(() => window.location.href);
 
-const allBeneficiariesSelected = computed({
-  get() {
-    if (!billData.value?.members?.length) {
-      return false;
-    }
-    return billData.value.members.length > 0 && newExpense.value.beneficiary_ids.length === billData.value.members.length;
-  },
-  set(value) {
-    if (value) {
-      newExpense.value.beneficiary_ids = billData.value.members.map(m => m.id);
-    } else {
-      newExpense.value.beneficiary_ids = [];
-    }
-  }
-});
-
 const formatCurrency = (value) => {
   if (typeof value !== 'number') return '';
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(value);
+};
+
+const fetchBills = async () => {
+  loading.value = true;
+  error.value = null;
+  try {
+    const response = await axios.get(`${API_URL}/bills`);
+    billList.value = response.data;
+  } catch (err) {
+    handleApiError(err, "割り勘リストの取得に失敗しました。");
+  } finally {
+    loading.value = false;
+  }
 };
 
 const fetchSettlement = async () => {
@@ -214,6 +227,7 @@ const fetchBill = async (id) => {
   try {
     const response = await axios.get(`${API_URL}/bills/${id}`);
     billData.value = response.data;
+    document.title = `割り勘.com - ${billData.value.description}`; // Dynamic title update
     if (billData.value.members.length > 0 && billData.value.expenses.length > 0) {
       await fetchSettlement();
     } else {
@@ -305,6 +319,14 @@ const addExpense = async () => {
   }
 };
 
+const toggleSelectAllBeneficiaries = (event) => {
+    if (event.target.checked) {
+        newExpense.value.beneficiary_ids = billData.value.members.map(m => m.id);
+    } else {
+        newExpense.value.beneficiary_ids = [];
+    }
+}
+
 const handleApiError = (err, defaultMessage) => {
   if (err.response && err.response.data && err.response.data.detail) {
     error.value = err.response.data.detail;
@@ -332,8 +354,12 @@ watch(() => route.params.id, (newId) => {
   billId.value = newId;
   error.value = null;
   billData.value = null; // Reset data to prevent showing old state
+  billList.value = []; // Reset bill list
   if (newId) {
     fetchBill(newId);
+  } else {
+    fetchBills();
+    document.title = '割り勘.com'; // Default title for home page
   }
 }, { immediate: true });
 
