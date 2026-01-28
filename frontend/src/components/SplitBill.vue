@@ -148,6 +148,22 @@
         </div>
       </div>
     </main>
+
+    <Transition
+      enter-active-class="transition ease-out duration-300"
+      enter-from-class="transform translate-y-full opacity-0"
+      enter-to-class="transform translate-y-0 opacity-100"
+      leave-active-class="transition ease-in duration-200"
+      leave-from-class="transform translate-y-0 opacity-100"
+      leave-to-class="transform translate-y-full opacity-0"
+    >
+      <div v-if="showToast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+        </svg>
+        <span>コピーしました</span>
+      </div>
+    </Transition>
     
   </div>
 </template>
@@ -176,6 +192,8 @@ const newExpense = ref({
   beneficiary_ids: []
 });
 const settlement = ref([]);
+const showToast = ref(false);
+const toastTimeout = ref(null);
 
 const currentUrl = computed(() => window.location.href);
 
@@ -316,7 +334,16 @@ const handleApiError = (err, defaultMessage) => {
 };
 
 const copyUrl = () => {
-  navigator.clipboard.writeText(currentUrl.value).then(() => alert('URLをコピーしました！'));
+  navigator.clipboard.writeText(currentUrl.value).then(() => {
+    if (toastTimeout.value) {
+      clearTimeout(toastTimeout.value);
+    }
+    showToast.value = true;
+    toastTimeout.value = setTimeout(() => {
+      showToast.value = false;
+      toastTimeout.value = null;
+    }, 3000);
+  });
 };
 
 const goHome = () => {
