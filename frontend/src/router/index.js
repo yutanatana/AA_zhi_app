@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import SplitBill from '../components/SplitBill.vue'
+import HomeView from '../views/HomeView.vue'
+import BillDetailView from '../views/BillDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,12 +8,12 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: SplitBill
+      component: HomeView
     },
     {
       path: '/:id',
       name: 'bill',
-      component: SplitBill
+      component: BillDetailView
     }
   ]
 })
