@@ -1,0 +1,25 @@
+services:
+  # バックエンド (FastAPI)
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"  # ホストの8000番 -> コンテナの8000番
+    volumes:
+      - ./backend:/app  # 【重要】ローカルのコード変更をコンテナに即反映（ホットリロード）
+    environment:
+      - DATABASE_URL=sqlite:///./sql_app.db
+      # Renderなどと違い、Docker内では localhost ではなくサービス名で通信する場合があるが
+      # SQLiteはファイルなのでこのままでOK
+
+  # フロントエンド (Vue)
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"  # Viteのデフォルトポート
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # node_modulesはホスト側で上書きしないように除外
+    environment:
+      - VITE_API_URL=http://localhost:8000 # ブラウザから見たバックエンドのURL
+    depends_on:
+      - backend # バックエンドが立ち上がってから起動
